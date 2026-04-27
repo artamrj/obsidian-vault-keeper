@@ -1,10 +1,10 @@
 import {
+  AbstractInputSuggest,
   App,
   Notice,
   Plugin,
   PluginSettingTab,
   Setting,
-  setIcon,
   TAbstractFile,
   TFile,
   TFolder,
@@ -39,6 +39,49 @@ type ProtectableItem = {
   file: TFile | TFolder;
   type: "file" | "folder";
 };
+
+type IndexedProtectableItem = ProtectableItem & {
+  path: string;
+  normalizedPath: string;
+  searchable: string;
+};
+
+const SEARCH_RESULT_LIMIT = 25;
+
+class ProtectedPathSuggest extends AbstractInputSuggest<IndexedProtectableItem> {
+  constructor(
+    app: App,
+    inputEl: HTMLInputElement,
+    private items: IndexedProtectableItem[],
+    private isAlreadyProtected: (item: IndexedProtectableItem) => boolean,
+    private onChoose: (item: IndexedProtectableItem) => void
+  ) {
+    super(app, inputEl);
+    this.limit = SEARCH_RESULT_LIMIT;
+  }
+
+  protected getSuggestions(query: string): IndexedProtectableItem[] {
+    const cleanQuery = query.trim().toLowerCase();
+    if (!cleanQuery) return [];
+    return this.items
+      .filter((item) => item.searchable.includes(cleanQuery))
+      .slice(0, SEARCH_RESULT_LIMIT);
+  }
+
+  renderSuggestion(item: IndexedProtectableItem, el: HTMLElement): void {
+    el.createDiv({ text: item.path });
+    el.createDiv({
+      text: `${item.type === "folder" ? "Folder" : "File"}${this.isAlreadyProtected(item) ? " - Already protected" : ""}`,
+      cls: "suggestion-note",
+    });
+  }
+
+  selectSuggestion(item: IndexedProtectableItem, _evt?: MouseEvent | KeyboardEvent): void {
+    this.setValue(item.path);
+    this.onChoose(item);
+    this.close();
+  }
+}
 
 export default class FolderGuardPlugin extends Plugin {
   settings: FolderGuardSettings;
@@ -195,17 +238,11 @@ class FolderGuardSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.addClass("folder-guard-settings");
 
-    const hero = containerEl.createDiv({ cls: "folder-guard-hero" });
-    const heroIcon = hero.createDiv({ cls: "folder-guard-hero-icon" });
-    setIcon(heroIcon, "shield-check");
-    const heroCopy = hero.createDiv();
-    heroCopy.createEl("h2", { text: "Vault Keeper" });
-    heroCopy.createEl("p", {
-      text: "Protect folders and files from accidental deletion inside Obsidian.",
-      cls: "setting-item-description",
-    });
+    new Setting(containerEl)
+      .setName("Vault Keeper")
+      .setDesc("Protect folders and files from accidental deletion inside Obsidian.")
+      .setHeading();
 
     new Setting(containerEl)
       .setName("Block deleting folder contents")
@@ -221,142 +258,85 @@ class FolderGuardSettingTab extends PluginSettingTab {
     this.renderProtectedList(containerEl, "Protected folders", this.plugin.settings.protectedFolders, "folder");
     this.renderProtectedList(containerEl, "Protected files", this.plugin.settings.protectedFiles, "file");
 
-    const note = containerEl.createDiv({ cls: "folder-guard-note" });
-    const noteIcon = note.createDiv({ cls: "folder-guard-note-icon" });
-    setIcon(noteIcon, "info");
-    note.createEl("p", {
-      text: "This blocks deletion only inside Obsidian. It cannot stop deletion from Finder, Explorer, terminal, sync tools, or other apps.",
-      cls: "setting-item-description",
-    });
+    new Setting(containerEl)
+      .setName("Important")
+      .setDesc("This blocks deletion only inside Obsidian. It cannot stop deletion from Finder, Explorer, terminal, sync tools, or other apps.");
   }
 
   private renderAddProtectedItem(containerEl: HTMLElement) {
-    const wrap = containerEl.createDiv({ cls: "folder-guard-card" });
-    const header = wrap.createDiv({ cls: "folder-guard-card-header" });
-    const titleWrap = header.createDiv();
-    titleWrap.createEl("h3", { text: "Add protected path" });
-    titleWrap.createEl("p", {
-      text: "Type a folder or file name, select a match, then add it.",
-      cls: "setting-item-description",
-    });
-    const countPill = header.createDiv({ cls: "folder-guard-count-pill" });
-    setIcon(countPill.createSpan(), "database");
-    countPill.createSpan({ text: `${this.getProtectableItems().length} items` });
-
-    const row = wrap.createDiv({ cls: "folder-guard-row" });
-    const input = row.createEl("input", {
-      type: "text",
-      placeholder: "Archive or Uni/exam.md",
-      cls: "folder-guard-input",
-    });
-    const addButton = row.createEl("button", { cls: "mod-cta folder-guard-add-button" });
-    setIcon(addButton.createSpan(), "plus");
-    addButton.createSpan({ text: "Add" });
-    const preview = wrap.createDiv({ cls: "folder-guard-preview" });
-    let selectedPath = "";
-
     const items = this.getProtectableItems();
+    const protectedFolderSet = new Set(this.plugin.settings.protectedFolders.map(normalizePath));
+    const protectedFileSet = new Set(this.plugin.settings.protectedFiles.map(normalizePath));
+    let selectedPath = "";
+    let inputEl: HTMLInputElement | undefined;
 
-    const findExactItem = (path: string): ProtectableItem | undefined => {
+    const isAlreadyProtected = (item: IndexedProtectableItem) =>
+      item.type === "folder"
+        ? protectedFolderSet.has(item.normalizedPath)
+        : protectedFileSet.has(item.normalizedPath);
+
+    const findExactItem = (path: string): IndexedProtectableItem | undefined => {
       const cleanPath = normalizePath(path).toLowerCase();
       if (!cleanPath) return undefined;
-      return items.find((item) => item.file.path.toLowerCase() === cleanPath);
-    };
-
-    const renderPreview = () => {
-      const query = input.value.trim().toLowerCase();
-      preview.empty();
-
-      if (!query) {
-        const empty = preview.createDiv({ cls: "folder-guard-empty" });
-        setIcon(empty.createDiv({ cls: "folder-guard-empty-icon" }), "search");
-        empty.createDiv({ text: "Start typing to preview matching folders and files." });
-        return;
-      }
-
-      const matches = items
-        .filter((item) => {
-          const path = item.file.path.toLowerCase();
-          const name = item.file.name.toLowerCase();
-          return path.includes(query) || name.includes(query);
-        })
-        .slice(0, 20);
-
-      if (matches.length === 0) {
-        const empty = preview.createDiv({ cls: "folder-guard-empty" });
-        setIcon(empty.createDiv({ cls: "folder-guard-empty-icon" }), "file-question");
-        empty.createDiv({ text: "No existing file or folder matches this path." });
-        selectedPath = "";
-        return;
-      }
-
-      const list = preview.createDiv({ cls: "folder-guard-preview-list" });
-      matches.forEach((item) => {
-        const isSelected = item.file.path === selectedPath;
-        const isAlreadyProtected =
-          item.type === "folder"
-            ? this.plugin.settings.protectedFolders.includes(item.file.path)
-            : this.plugin.settings.protectedFiles.includes(item.file.path);
-        const button = list.createEl("button", {
-          cls: `folder-guard-preview-row${isSelected ? " is-selected" : ""}`,
-        });
-        button.type = "button";
-        const icon = button.createDiv({ cls: "folder-guard-item-icon" });
-        setIcon(icon, item.type === "folder" ? "folder" : "file-text");
-        const textWrap = button.createDiv({ cls: "folder-guard-item-main" });
-        textWrap.createEl("code", { text: item.file.path });
-        const meta = textWrap.createDiv({ cls: "folder-guard-item-meta" });
-        meta.createSpan({ text: item.type === "folder" ? "Folder" : "File" });
-        if (isAlreadyProtected) meta.createSpan({ text: "Already protected" });
-        const action = button.createDiv({ cls: "folder-guard-preview-action" });
-        setIcon(action, isSelected ? "check" : "arrow-right");
-        button.addEventListener("click", () => {
-          selectedPath = item.file.path;
-          input.value = item.file.path;
-          renderPreview();
-        });
-      });
+      return items.find((item) => item.normalizedPath.toLowerCase() === cleanPath);
     };
 
     const addPath = async () => {
-      const chosen = selectedPath || normalizePath(input.value);
+      const chosen = selectedPath || normalizePath(inputEl?.value ?? "");
       const item = findExactItem(chosen);
       if (!item) {
         new Notice("Choose an existing file or folder from the list.");
-        renderPreview();
         return;
       }
 
-      if (!item.file.path) {
+      if (!item.path) {
         new Notice("Type a path first.");
         return;
       }
 
+      if (isAlreadyProtected(item)) {
+        new Notice(`${item.path} is already protected.`);
+        return;
+      }
+
       if (item.type === "folder") {
-        await this.plugin.addProtectedFolder(item.file.path);
-        new Notice(`Protected folder added: ${item.file.path}`);
+        await this.plugin.addProtectedFolder(item.path);
+        new Notice(`Protected folder added: ${item.path}`);
       } else {
-        await this.plugin.addProtectedFile(item.file.path);
-        new Notice(`Protected file added: ${item.file.path}`);
+        await this.plugin.addProtectedFile(item.path);
+        new Notice(`Protected file added: ${item.path}`);
       }
 
       this.display();
     };
 
-    input.addEventListener("input", () => {
-      selectedPath = "";
-      renderPreview();
-    });
-    addButton.addEventListener("click", async () => {
-      await addPath();
-    });
-    input.addEventListener("keydown", async (event) => {
-      if (event.key === "Enter") await addPath();
-    });
-    renderPreview();
+    new Setting(containerEl)
+      .setName("Add protected path")
+      .setDesc(`Search ${items.length} folders and files, select a match, then protect it.`)
+      .addSearch((search) => {
+        search.setPlaceholder("Search folders and files...");
+        inputEl = search.inputEl;
+        new ProtectedPathSuggest(this.app, search.inputEl, items, isAlreadyProtected, (item) => {
+          selectedPath = item.path;
+        });
+        search.onChange(() => {
+          selectedPath = "";
+        });
+        search.inputEl.addEventListener("keydown", async (event) => {
+          if (event.key === "Enter") await addPath();
+        });
+      })
+      .addButton((button) =>
+        button
+          .setButtonText("Add")
+          .setCta()
+          .onClick(async () => {
+            await addPath();
+          })
+      );
   }
 
-  private getProtectableItems(): ProtectableItem[] {
+  private getProtectableItems(): IndexedProtectableItem[] {
     return this.app.vault
       .getAllLoadedFiles()
       .filter((item): item is TFile | TFolder => {
@@ -365,11 +345,14 @@ class FolderGuardSettingTab extends PluginSettingTab {
       })
       .map((file) => ({
         file,
+        path: file.path,
+        normalizedPath: normalizePath(file.path),
+        searchable: `${file.path} ${file.name}`.toLowerCase(),
         type: file instanceof TFolder ? ("folder" as const) : ("file" as const),
       }))
       .sort((a, b) => {
         if (a.type !== b.type) return a.type === "folder" ? -1 : 1;
-        return a.file.path.localeCompare(b.file.path);
+        return a.path.localeCompare(b.path);
       });
   }
 
@@ -379,34 +362,32 @@ class FolderGuardSettingTab extends PluginSettingTab {
     paths: string[],
     type: "folder" | "file"
   ) {
-    const card = containerEl.createDiv({ cls: "folder-guard-card" });
-    const header = card.createDiv({ cls: "folder-guard-card-header" });
-    header.createEl("h3", { text: title });
-    header.createDiv({ text: `${paths.length}`, cls: "folder-guard-count-pill" });
+    new Setting(containerEl)
+      .setName(title)
+      .setDesc(`${paths.length} ${paths.length === 1 ? "path" : "paths"} protected`)
+      .setHeading();
 
     if (paths.length === 0) {
-      const empty = card.createDiv({ cls: "folder-guard-empty" });
-      setIcon(empty.createDiv({ cls: "folder-guard-empty-icon" }), type === "folder" ? "folder-open" : "file");
-      empty.createDiv({ text: "Nothing protected yet." });
+      new Setting(containerEl)
+        .setName("Nothing protected yet")
+        .setDesc(type === "folder" ? "No protected folders." : "No protected files.");
       return;
     }
 
-    const list = card.createDiv({ cls: "folder-guard-list" });
     paths.forEach((path) => {
-      const row = list.createDiv({ cls: "folder-guard-list-row" });
-      const icon = row.createDiv({ cls: "folder-guard-item-icon" });
-      setIcon(icon, type === "folder" ? "folder-lock" : "file-lock-2");
-      const textWrap = row.createDiv({ cls: "folder-guard-item-main" });
-      textWrap.createEl("code", { text: path });
-      textWrap.createDiv({ text: type === "folder" ? "Folder" : "File", cls: "folder-guard-item-meta" });
-      const removeButton = row.createEl("button", { cls: "folder-guard-icon-button" });
-      removeButton.ariaLabel = `Remove ${path}`;
-      setIcon(removeButton, "trash-2");
-      removeButton.addEventListener("click", async () => {
-        if (type === "folder") await this.plugin.removeProtectedFolder(path);
-        else await this.plugin.removeProtectedFile(path);
-        this.display();
-      });
+      new Setting(containerEl)
+        .setName(path)
+        .setDesc(type === "folder" ? "Folder" : "File")
+        .addExtraButton((button) =>
+          button
+            .setIcon("trash-2")
+            .setTooltip(`Remove ${path}`)
+            .onClick(async () => {
+              if (type === "folder") await this.plugin.removeProtectedFolder(path);
+              else await this.plugin.removeProtectedFile(path);
+              this.display();
+            })
+        );
     });
   }
 }
