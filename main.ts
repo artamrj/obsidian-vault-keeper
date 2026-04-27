@@ -4,6 +4,7 @@ import {
   Plugin,
   PluginSettingTab,
   Setting,
+  setIcon,
   TAbstractFile,
   TFile,
   TFolder,
@@ -16,7 +17,7 @@ interface FolderGuardSettings {
 }
 
 const DEFAULT_SETTINGS: FolderGuardSettings = {
-  protectedFolders: ["Archive"],
+  protectedFolders: [],
   protectedFiles: [],
   allowDeletingContents: false,
 };
@@ -194,9 +195,14 @@ class FolderGuardSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
+    containerEl.addClass("folder-guard-settings");
 
-    containerEl.createEl("h2", { text: "Folder Guard" });
-    containerEl.createEl("p", {
+    const hero = containerEl.createDiv({ cls: "folder-guard-hero" });
+    const heroIcon = hero.createDiv({ cls: "folder-guard-hero-icon" });
+    setIcon(heroIcon, "shield-check");
+    const heroCopy = hero.createDiv();
+    heroCopy.createEl("h2", { text: "Vault Keeper" });
+    heroCopy.createEl("p", {
       text: "Protect folders and files from accidental deletion inside Obsidian.",
       cls: "setting-item-description",
     });
@@ -215,20 +221,27 @@ class FolderGuardSettingTab extends PluginSettingTab {
     this.renderProtectedList(containerEl, "Protected folders", this.plugin.settings.protectedFolders, "folder");
     this.renderProtectedList(containerEl, "Protected files", this.plugin.settings.protectedFiles, "file");
 
-    containerEl.createEl("hr");
-    containerEl.createEl("p", {
-      text: "Important: this blocks deletion only inside Obsidian. It cannot stop deletion from Finder, Explorer, terminal, sync tools, or other apps.",
+    const note = containerEl.createDiv({ cls: "folder-guard-note" });
+    const noteIcon = note.createDiv({ cls: "folder-guard-note-icon" });
+    setIcon(noteIcon, "info");
+    note.createEl("p", {
+      text: "This blocks deletion only inside Obsidian. It cannot stop deletion from Finder, Explorer, terminal, sync tools, or other apps.",
       cls: "setting-item-description",
     });
   }
 
   private renderAddProtectedItem(containerEl: HTMLElement) {
     const wrap = containerEl.createDiv({ cls: "folder-guard-card" });
-    wrap.createEl("h3", { text: "Add protected path" });
-    wrap.createEl("p", {
+    const header = wrap.createDiv({ cls: "folder-guard-card-header" });
+    const titleWrap = header.createDiv();
+    titleWrap.createEl("h3", { text: "Add protected path" });
+    titleWrap.createEl("p", {
       text: "Type a folder or file name, select a match, then add it.",
       cls: "setting-item-description",
     });
+    const countPill = header.createDiv({ cls: "folder-guard-count-pill" });
+    setIcon(countPill.createSpan(), "database");
+    countPill.createSpan({ text: `${this.getProtectableItems().length} items` });
 
     const row = wrap.createDiv({ cls: "folder-guard-row" });
     const input = row.createEl("input", {
@@ -236,7 +249,9 @@ class FolderGuardSettingTab extends PluginSettingTab {
       placeholder: "Archive or Uni/exam.md",
       cls: "folder-guard-input",
     });
-    const addButton = row.createEl("button", { text: "Add", cls: "mod-cta" });
+    const addButton = row.createEl("button", { cls: "mod-cta folder-guard-add-button" });
+    setIcon(addButton.createSpan(), "plus");
+    addButton.createSpan({ text: "Add" });
     const preview = wrap.createDiv({ cls: "folder-guard-preview" });
     let selectedPath = "";
 
@@ -253,10 +268,9 @@ class FolderGuardSettingTab extends PluginSettingTab {
       preview.empty();
 
       if (!query) {
-        preview.createEl("p", {
-          text: "Start typing to preview matching folders and files.",
-          cls: "setting-item-description",
-        });
+        const empty = preview.createDiv({ cls: "folder-guard-empty" });
+        setIcon(empty.createDiv({ cls: "folder-guard-empty-icon" }), "search");
+        empty.createDiv({ text: "Start typing to preview matching folders and files." });
         return;
       }
 
@@ -269,25 +283,33 @@ class FolderGuardSettingTab extends PluginSettingTab {
         .slice(0, 20);
 
       if (matches.length === 0) {
-        preview.createEl("p", {
-          text: "No existing file or folder matches this path.",
-          cls: "setting-item-description",
-        });
+        const empty = preview.createDiv({ cls: "folder-guard-empty" });
+        setIcon(empty.createDiv({ cls: "folder-guard-empty-icon" }), "file-question");
+        empty.createDiv({ text: "No existing file or folder matches this path." });
         selectedPath = "";
         return;
       }
 
+      const list = preview.createDiv({ cls: "folder-guard-preview-list" });
       matches.forEach((item) => {
         const isSelected = item.file.path === selectedPath;
-        const button = preview.createEl("button", {
+        const isAlreadyProtected =
+          item.type === "folder"
+            ? this.plugin.settings.protectedFolders.includes(item.file.path)
+            : this.plugin.settings.protectedFiles.includes(item.file.path);
+        const button = list.createEl("button", {
           cls: `folder-guard-preview-row${isSelected ? " is-selected" : ""}`,
         });
         button.type = "button";
-        button.createEl("span", {
-          text: item.type === "folder" ? "Folder" : "File",
-          cls: "folder-guard-list-type",
-        });
-        button.createEl("code", { text: item.file.path });
+        const icon = button.createDiv({ cls: "folder-guard-item-icon" });
+        setIcon(icon, item.type === "folder" ? "folder" : "file-text");
+        const textWrap = button.createDiv({ cls: "folder-guard-item-main" });
+        textWrap.createEl("code", { text: item.file.path });
+        const meta = textWrap.createDiv({ cls: "folder-guard-item-meta" });
+        meta.createSpan({ text: item.type === "folder" ? "Folder" : "File" });
+        if (isAlreadyProtected) meta.createSpan({ text: "Already protected" });
+        const action = button.createDiv({ cls: "folder-guard-preview-action" });
+        setIcon(action, isSelected ? "check" : "arrow-right");
         button.addEventListener("click", () => {
           selectedPath = item.file.path;
           input.value = item.file.path;
@@ -358,24 +380,28 @@ class FolderGuardSettingTab extends PluginSettingTab {
     type: "folder" | "file"
   ) {
     const card = containerEl.createDiv({ cls: "folder-guard-card" });
-    card.createEl("h3", { text: `${title} (${paths.length})` });
+    const header = card.createDiv({ cls: "folder-guard-card-header" });
+    header.createEl("h3", { text: title });
+    header.createDiv({ text: `${paths.length}`, cls: "folder-guard-count-pill" });
 
     if (paths.length === 0) {
-      card.createEl("p", {
-        text: "Nothing protected yet.",
-        cls: "setting-item-description",
-      });
+      const empty = card.createDiv({ cls: "folder-guard-empty" });
+      setIcon(empty.createDiv({ cls: "folder-guard-empty-icon" }), type === "folder" ? "folder-open" : "file");
+      empty.createDiv({ text: "Nothing protected yet." });
       return;
     }
 
+    const list = card.createDiv({ cls: "folder-guard-list" });
     paths.forEach((path) => {
-      const row = card.createDiv({ cls: "folder-guard-list-row" });
-      row.createEl("span", {
-        text: type === "folder" ? "Folder" : "File",
-        cls: "folder-guard-list-type",
-      });
-      row.createEl("code", { text: path });
-      const removeButton = row.createEl("button", { text: "Remove" });
+      const row = list.createDiv({ cls: "folder-guard-list-row" });
+      const icon = row.createDiv({ cls: "folder-guard-item-icon" });
+      setIcon(icon, type === "folder" ? "folder-lock" : "file-lock-2");
+      const textWrap = row.createDiv({ cls: "folder-guard-item-main" });
+      textWrap.createEl("code", { text: path });
+      textWrap.createDiv({ text: type === "folder" ? "Folder" : "File", cls: "folder-guard-item-meta" });
+      const removeButton = row.createEl("button", { cls: "folder-guard-icon-button" });
+      removeButton.ariaLabel = `Remove ${path}`;
+      setIcon(removeButton, "trash-2");
       removeButton.addEventListener("click", async () => {
         if (type === "folder") await this.plugin.removeProtectedFolder(path);
         else await this.plugin.removeProtectedFile(path);
