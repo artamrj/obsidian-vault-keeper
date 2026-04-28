@@ -1,11 +1,24 @@
 {
   "name": "vault-keeper",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Obsidian plugin to block deletion of configured folders and files inside Obsidian.",
   "main": "main.js",
+  "author": "Arta",
+  "license": "MIT",
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "vault",
+    "file-protection",
+    "delete-protection"
+  ],
   "scripts": {
     "dev": "node esbuild.config.mjs",
-    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+    "typecheck": "tsc --noEmit --skipLibCheck",
+    "build": "npm run typecheck && node esbuild.config.mjs production"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",

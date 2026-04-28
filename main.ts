@@ -10,13 +10,13 @@ import {
   TFolder,
 } from "obsidian";
 
-interface FolderGuardSettings {
+interface VaultKeeperSettings {
   protectedFolders: string[];
   protectedFiles: string[];
   allowDeletingContents: boolean;
 }
 
-const DEFAULT_SETTINGS: FolderGuardSettings = {
+const DEFAULT_SETTINGS: VaultKeeperSettings = {
   protectedFolders: [],
   protectedFiles: [],
   allowDeletingContents: false,
@@ -83,16 +83,18 @@ class ProtectedPathSuggest extends AbstractInputSuggest<IndexedProtectableItem> 
   }
 }
 
-export default class FolderGuardPlugin extends Plugin {
-  settings: FolderGuardSettings;
+export default class VaultKeeperPlugin extends Plugin {
+  settings: VaultKeeperSettings;
 
   private originalVaultDelete?: typeof this.app.vault.delete;
   private originalVaultTrash?: typeof this.app.vault.trash;
   private originalFileManagerTrashFile?: (file: TAbstractFile) => Promise<void>;
+  private protectedFileSet = new Set<string>();
+  private protectedFolderPaths: string[] = [];
 
   async onload() {
     await this.loadSettings();
-    this.addSettingTab(new FolderGuardSettingTab(this.app, this));
+    this.addSettingTab(new VaultKeeperSettingTab(this.app, this));
     this.patchDeletionMethods();
     this.addCommand({
       id: "show-protected-items",
@@ -115,11 +117,13 @@ export default class FolderGuardPlugin extends Plugin {
     this.settings.protectedFolders = cleanUnique(this.settings.protectedFolders ?? []);
     this.settings.protectedFiles = cleanUnique(this.settings.protectedFiles ?? []);
     this.settings.allowDeletingContents = Boolean(this.settings.allowDeletingContents);
+    this.refreshProtectionIndex();
   }
 
   async saveSettings() {
     this.settings.protectedFolders = cleanUnique(this.settings.protectedFolders);
     this.settings.protectedFiles = cleanUnique(this.settings.protectedFiles);
+    this.refreshProtectionIndex();
     await this.saveData(this.settings);
   }
 
@@ -152,15 +156,9 @@ export default class FolderGuardPlugin extends Plugin {
   isProtected(file: TAbstractFile): boolean {
     const targetPath = normalizePath(file.path);
 
-    const exactFileProtected = this.settings.protectedFiles.some(
-      (protectedFile) => targetPath === normalizePath(protectedFile)
-    );
-    if (exactFileProtected) return true;
+    if (this.protectedFileSet.has(targetPath)) return true;
 
-    return this.settings.protectedFolders.some((folder) => {
-      const protectedPath = normalizePath(folder);
-      if (!protectedPath) return false;
-
+    return this.protectedFolderPaths.some((protectedPath) => {
       const isExactFolder = targetPath === protectedPath;
       const isInsideFolder = targetPath.startsWith(`${protectedPath}/`);
 
@@ -171,9 +169,14 @@ export default class FolderGuardPlugin extends Plugin {
     });
   }
 
+  private refreshProtectionIndex() {
+    this.protectedFileSet = new Set(this.settings.protectedFiles.map(normalizePath));
+    this.protectedFolderPaths = this.settings.protectedFolders.map(normalizePath).filter(Boolean);
+  }
+
   private block(file: TAbstractFile): never {
-    new Notice(`Folder Guard blocked deletion: ${file.path}`);
-    throw new Error(`Folder Guard blocked deletion of protected path: ${file.path}`);
+    new Notice(`Vault Keeper blocked deletion: ${file.path}`);
+    throw new Error(`Vault Keeper blocked deletion of protected path: ${file.path}`);
   }
 
   private patchDeletionMethods() {
@@ -227,10 +230,10 @@ export default class FolderGuardPlugin extends Plugin {
   }
 }
 
-class FolderGuardSettingTab extends PluginSettingTab {
-  plugin: FolderGuardPlugin;
+class VaultKeeperSettingTab extends PluginSettingTab {
+  plugin: VaultKeeperPlugin;
 
-  constructor(app: App, plugin: FolderGuardPlugin) {
+  constructor(app: App, plugin: VaultKeeperPlugin) {
     super(app, plugin);
     this.plugin = plugin;
   }

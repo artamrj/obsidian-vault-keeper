@@ -1,24 +1,85 @@
 # Vault Keeper
 
-Obsidian plugin that blocks accidental deletion of configured folders and files from inside Obsidian.
+Vault Keeper is a small Obsidian plugin that blocks accidental deletion of selected folders and files from inside Obsidian.
+
+It uses Obsidian's native settings UI and stores a simple list of protected paths in the plugin data file.
 
 ## Features
 
-- Protect folders from deletion
-- Optionally protect everything inside protected folders
-- Protect individual files
-- Add existing folders/files with one automatic preview picker
-- Auto-detect whether the selected path is a folder or file
+- Protect individual files from delete/trash actions in Obsidian.
+- Protect folders from delete/trash actions in Obsidian.
+- Optionally protect everything inside protected folders.
+- Add existing files and folders with native autocomplete suggestions.
+- Keep saved settings simple and portable.
 
-## Install for testing
+## Installation
 
-1. Copy this folder to: `<your vault>/.obsidian/plugins/vault-keeper/`
-2. Run `npm install`
-3. Run `npm run build`
-4. Enable community plugins in Obsidian
-5. Enable **Vault Keeper**
-6. Go to settings and add protected paths
+### Manual testing
+
+1. Copy this folder to:
+   `<your-vault>/.obsidian/plugins/vault-keeper/`
+2. Run `npm install`.
+3. Run `npm run build`.
+4. Open Obsidian settings.
+5. Enable community plugins.
+6. Enable **Vault Keeper**.
+
+### Release files
+
+For a packaged Obsidian plugin release, include:
+
+- `manifest.json`
+- `main.js`
+- `LICENSE`
+
+No `styles.css` file is required.
+
+## Usage
+
+1. Open **Settings -> Community plugins -> Vault Keeper**.
+2. Search for an existing folder or file under **Add protected path**.
+3. Select a suggestion and click **Add**.
+4. Remove protection with the trash button beside a protected path.
+
+The command palette also includes **Show protected items** for a quick summary.
+
+## Settings
+
+### Block deleting folder contents
+
+When enabled, protected folders and everything inside them cannot be deleted from Obsidian.
+
+When disabled, only the protected folder itself is blocked. Files and folders inside it can still be deleted.
+
+## Development
+
+```bash
+npm install
+npm run typecheck
+npm run build
+npm run dev
+```
+
+- `npm run typecheck` validates TypeScript without writing build output.
+- `npm run build` typechecks and writes the production `main.js`.
+- `npm run dev` starts esbuild in watch mode.
+
+## Release Checklist
+
+1. Update the version in `manifest.json` and `package.json`.
+2. Run `npm run typecheck`.
+3. Run `npm run build`.
+4. Test in a local vault.
+5. Package `manifest.json`, `main.js`, and `LICENSE`.
 
 ## Limitations
 
-This only blocks deletion through Obsidian APIs. It cannot prevent deletion through your OS file manager, terminal, sync apps, or external tools. For real protection, use operating-system folder permissions too.
+Vault Keeper only blocks deletion through Obsidian APIs. It cannot prevent deletion from Finder, Explorer, terminal commands, sync tools, mobile file managers, or other apps.
+
+For stronger protection, use operating-system permissions, backups, and sync history in addition to this plugin.
+
+## Troubleshooting
+
+- If a path does not appear in autocomplete, make sure it already exists in the vault.
+- If protection does not seem active, reload Obsidian and confirm the plugin is enabled.
+- If files are deleted outside Obsidian, restore them from backups or sync history; Vault Keeper cannot intercept external deletion.
