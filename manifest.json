@@ -3,7 +3,7 @@
   "name": "Vault Keeper",
   "version": "1.0.0",
   "minAppVersion": "1.5.0",
-  "description": "Prevents accidental deletion of protected folders and files from inside Obsidian.",
+  "description": "Protect folders and files from accidental deletion.",
   "author": "Arta",
   "isDesktopOnly": false
 }
