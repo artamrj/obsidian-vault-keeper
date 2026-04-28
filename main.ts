@@ -96,15 +96,6 @@ export default class VaultKeeperPlugin extends Plugin {
     await this.loadSettings();
     this.addSettingTab(new VaultKeeperSettingTab(this.app, this));
     this.patchDeletionMethods();
-    this.addCommand({
-      id: "show-protected-items",
-      name: "Show protected items",
-      callback: () => {
-        const folders = this.settings.protectedFolders.join(", ") || "none";
-        const files = this.settings.protectedFiles.join(", ") || "none";
-        new Notice(`Protected folders: ${folders}\nProtected files: ${files}`);
-      },
-    });
   }
 
   onunload() {
