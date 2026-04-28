@@ -30,8 +30,8 @@ function normalizePath(path: string): string {
 }
 
 function cleanUnique(paths: string[]): string[] {
-  return Array.from(new Set(paths.map(normalizePath).filter(Boolean))).sort((a, b) =>
-    a.localeCompare(b)
+  return Array.from(new Set(paths.map(normalizePath).filter(Boolean))).sort(
+    (a, b) => a.localeCompare(b),
   );
 }
 
@@ -54,7 +54,7 @@ class ProtectedPathSuggest extends AbstractInputSuggest<IndexedProtectableItem> 
     inputEl: HTMLInputElement,
     private items: IndexedProtectableItem[],
     private isAlreadyProtected: (item: IndexedProtectableItem) => boolean,
-    private onChoose: (item: IndexedProtectableItem) => void
+    private onChoose: (item: IndexedProtectableItem) => void,
   ) {
     super(app, inputEl);
     this.limit = SEARCH_RESULT_LIMIT;
@@ -76,7 +76,10 @@ class ProtectedPathSuggest extends AbstractInputSuggest<IndexedProtectableItem> 
     });
   }
 
-  selectSuggestion(item: IndexedProtectableItem, _evt?: MouseEvent | KeyboardEvent): void {
+  selectSuggestion(
+    item: IndexedProtectableItem,
+    _evt?: MouseEvent | KeyboardEvent,
+  ): void {
     this.setValue(item.path);
     this.onChoose(item);
     this.close();
@@ -105,14 +108,22 @@ export default class VaultKeeperPlugin extends Plugin {
   async loadSettings() {
     const loaded = await this.loadData();
     this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded);
-    this.settings.protectedFolders = cleanUnique(this.settings.protectedFolders ?? []);
-    this.settings.protectedFiles = cleanUnique(this.settings.protectedFiles ?? []);
-    this.settings.allowDeletingContents = Boolean(this.settings.allowDeletingContents);
+    this.settings.protectedFolders = cleanUnique(
+      this.settings.protectedFolders ?? [],
+    );
+    this.settings.protectedFiles = cleanUnique(
+      this.settings.protectedFiles ?? [],
+    );
+    this.settings.allowDeletingContents = Boolean(
+      this.settings.allowDeletingContents,
+    );
     this.refreshProtectionIndex();
   }
 
   async saveSettings() {
-    this.settings.protectedFolders = cleanUnique(this.settings.protectedFolders);
+    this.settings.protectedFolders = cleanUnique(
+      this.settings.protectedFolders,
+    );
     this.settings.protectedFiles = cleanUnique(this.settings.protectedFiles);
     this.refreshProtectionIndex();
     await this.saveData(this.settings);
@@ -121,26 +132,36 @@ export default class VaultKeeperPlugin extends Plugin {
   async addProtectedFolder(path: string) {
     const clean = normalizePath(path);
     if (!clean) return;
-    this.settings.protectedFolders = cleanUnique([...this.settings.protectedFolders, clean]);
+    this.settings.protectedFolders = cleanUnique([
+      ...this.settings.protectedFolders,
+      clean,
+    ]);
     await this.saveSettings();
   }
 
   async addProtectedFile(path: string) {
     const clean = normalizePath(path);
     if (!clean) return;
-    this.settings.protectedFiles = cleanUnique([...this.settings.protectedFiles, clean]);
+    this.settings.protectedFiles = cleanUnique([
+      ...this.settings.protectedFiles,
+      clean,
+    ]);
     await this.saveSettings();
   }
 
   async removeProtectedFolder(path: string) {
     const clean = normalizePath(path);
-    this.settings.protectedFolders = this.settings.protectedFolders.filter((p) => p !== clean);
+    this.settings.protectedFolders = this.settings.protectedFolders.filter(
+      (p) => p !== clean,
+    );
     await this.saveSettings();
   }
 
   async removeProtectedFile(path: string) {
     const clean = normalizePath(path);
-    this.settings.protectedFiles = this.settings.protectedFiles.filter((p) => p !== clean);
+    this.settings.protectedFiles = this.settings.protectedFiles.filter(
+      (p) => p !== clean,
+    );
     await this.saveSettings();
   }
 
@@ -161,13 +182,19 @@ export default class VaultKeeperPlugin extends Plugin {
   }
 
   private refreshProtectionIndex() {
-    this.protectedFileSet = new Set(this.settings.protectedFiles.map(normalizePath));
-    this.protectedFolderPaths = this.settings.protectedFolders.map(normalizePath).filter(Boolean);
+    this.protectedFileSet = new Set(
+      this.settings.protectedFiles.map(normalizePath),
+    );
+    this.protectedFolderPaths = this.settings.protectedFolders
+      .map(normalizePath)
+      .filter(Boolean);
   }
 
   private block(file: TAbstractFile): never {
     new Notice(`Vault Keeper blocked deletion: ${file.path}`);
-    throw new Error(`Vault Keeper blocked deletion of protected path: ${file.path}`);
+    throw new Error(
+      `Vault Keeper blocked deletion of protected path: ${file.path}`,
+    );
   }
 
   private patchDeletionMethods() {
@@ -178,8 +205,13 @@ export default class VaultKeeperPlugin extends Plugin {
     };
 
     if (!this.originalVaultDelete) {
-      this.originalVaultDelete = vault.delete.bind(vault) as typeof vault.delete;
-      vault.delete = async function (file: TAbstractFile, force?: boolean): Promise<void> {
+      this.originalVaultDelete = vault.delete.bind(
+        vault,
+      ) as typeof vault.delete;
+      vault.delete = async function (
+        file: TAbstractFile,
+        force?: boolean,
+      ): Promise<void> {
         if (plugin.isProtected(file)) plugin.block(file);
         return plugin.originalVaultDelete!(file, force);
       } as typeof vault.delete;
@@ -187,15 +219,21 @@ export default class VaultKeeperPlugin extends Plugin {
 
     if (!this.originalVaultTrash) {
       this.originalVaultTrash = vault.trash.bind(vault) as typeof vault.trash;
-      vault.trash = async function (file: TAbstractFile, system: boolean): Promise<void> {
+      vault.trash = async function (
+        file: TAbstractFile,
+        system: boolean,
+      ): Promise<void> {
         if (plugin.isProtected(file)) plugin.block(file);
         return plugin.originalVaultTrash!(file, system);
       } as typeof vault.trash;
     }
 
     if (fileManager.trashFile && !this.originalFileManagerTrashFile) {
-      this.originalFileManagerTrashFile = fileManager.trashFile.bind(fileManager);
-      fileManager.trashFile = async function (file: TAbstractFile): Promise<void> {
+      this.originalFileManagerTrashFile =
+        fileManager.trashFile.bind(fileManager);
+      fileManager.trashFile = async function (
+        file: TAbstractFile,
+      ): Promise<void> {
         if (plugin.isProtected(file)) plugin.block(file);
         return plugin.originalFileManagerTrashFile!(file);
       };
@@ -235,32 +273,58 @@ class VaultKeeperSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Vault Keeper")
-      .setDesc("Protect folders and files from accidental deletion inside Obsidian.")
+      .setDesc(
+        "Protect folders and files from accidental deletion inside Obsidian.",
+      )
       .setHeading();
 
     new Setting(containerEl)
       .setName("Block deleting folder contents")
-      .setDesc("When enabled, protected folders and everything inside them cannot be deleted.")
+      .setDesc(
+        "When enabled, protected folders and everything inside them cannot be deleted.",
+      )
       .addToggle((toggle) =>
-        toggle.setValue(!this.plugin.settings.allowDeletingContents).onChange(async (value) => {
-          this.plugin.settings.allowDeletingContents = !value;
-          await this.plugin.saveSettings();
-        })
+        toggle
+          .setValue(!this.plugin.settings.allowDeletingContents)
+          .onChange(async (value) => {
+            this.plugin.settings.allowDeletingContents = !value;
+            await this.plugin.saveSettings();
+          }),
       );
 
     this.renderAddProtectedItem(containerEl);
-    this.renderProtectedList(containerEl, "Protected folders", this.plugin.settings.protectedFolders, "folder");
-    this.renderProtectedList(containerEl, "Protected files", this.plugin.settings.protectedFiles, "file");
 
-    new Setting(containerEl)
+    this.renderProtectedList(
+      containerEl,
+      "Protected folders",
+      this.plugin.settings.protectedFolders,
+      "folder",
+    );
+
+    this.renderProtectedList(
+      containerEl,
+      "Protected files",
+      this.plugin.settings.protectedFiles,
+      "file",
+    );
+
+    const important = new Setting(containerEl)
       .setName("Important")
-      .setDesc("This blocks deletion only inside Obsidian. It cannot stop deletion from Finder, Explorer, terminal, sync tools, or other apps.");
+      .setDesc(
+        "This blocks deletion only inside Obsidian. It cannot stop deletion from Finder, Explorer, terminal, sync tools, or other apps.",
+      );
+
+    important.settingEl.addClass("vault-keeper-important");
   }
 
   private renderAddProtectedItem(containerEl: HTMLElement) {
     const items = this.getProtectableItems();
-    const protectedFolderSet = new Set(this.plugin.settings.protectedFolders.map(normalizePath));
-    const protectedFileSet = new Set(this.plugin.settings.protectedFiles.map(normalizePath));
+    const protectedFolderSet = new Set(
+      this.plugin.settings.protectedFolders.map(normalizePath),
+    );
+    const protectedFileSet = new Set(
+      this.plugin.settings.protectedFiles.map(normalizePath),
+    );
     let selectedPath = "";
     let inputEl: HTMLInputElement | undefined;
 
@@ -269,10 +333,14 @@ class VaultKeeperSettingTab extends PluginSettingTab {
         ? protectedFolderSet.has(item.normalizedPath)
         : protectedFileSet.has(item.normalizedPath);
 
-    const findExactItem = (path: string): IndexedProtectableItem | undefined => {
+    const findExactItem = (
+      path: string,
+    ): IndexedProtectableItem | undefined => {
       const cleanPath = normalizePath(path).toLowerCase();
       if (!cleanPath) return undefined;
-      return items.find((item) => item.normalizedPath.toLowerCase() === cleanPath);
+      return items.find(
+        (item) => item.normalizedPath.toLowerCase() === cleanPath,
+      );
     };
 
     const addPath = async () => {
@@ -306,13 +374,21 @@ class VaultKeeperSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Add protected path")
-      .setDesc(`Search ${items.length} folders and files, select a match, then protect it.`)
+      .setDesc(
+        `Search ${items.length} folders and files, select a match, then protect it.`,
+      )
       .addSearch((search) => {
         search.setPlaceholder("Search folders and files...");
         inputEl = search.inputEl;
-        new ProtectedPathSuggest(this.app, search.inputEl, items, isAlreadyProtected, (item) => {
-          selectedPath = item.path;
-        });
+        new ProtectedPathSuggest(
+          this.app,
+          search.inputEl,
+          items,
+          isAlreadyProtected,
+          (item) => {
+            selectedPath = item.path;
+          },
+        );
         search.onChange(() => {
           selectedPath = "";
         });
@@ -326,7 +402,7 @@ class VaultKeeperSettingTab extends PluginSettingTab {
           .setCta()
           .onClick(async () => {
             await addPath();
-          })
+          }),
       );
   }
 
@@ -354,17 +430,21 @@ class VaultKeeperSettingTab extends PluginSettingTab {
     containerEl: HTMLElement,
     title: string,
     paths: string[],
-    type: "folder" | "file"
+    type: "folder" | "file",
   ) {
     new Setting(containerEl)
       .setName(title)
-      .setDesc(`${paths.length} ${paths.length === 1 ? "path" : "paths"} protected`)
+      .setDesc(
+        `${paths.length} ${paths.length === 1 ? "path" : "paths"} protected`,
+      )
       .setHeading();
 
     if (paths.length === 0) {
       new Setting(containerEl)
         .setName("Nothing protected yet")
-        .setDesc(type === "folder" ? "No protected folders." : "No protected files.");
+        .setDesc(
+          type === "folder" ? "No protected folders." : "No protected files.",
+        );
       return;
     }
 
@@ -377,10 +457,11 @@ class VaultKeeperSettingTab extends PluginSettingTab {
             .setIcon("trash-2")
             .setTooltip(`Remove ${path}`)
             .onClick(async () => {
-              if (type === "folder") await this.plugin.removeProtectedFolder(path);
+              if (type === "folder")
+                await this.plugin.removeProtectedFolder(path);
               else await this.plugin.removeProtectedFile(path);
               this.display();
-            })
+            }),
         );
     });
   }
