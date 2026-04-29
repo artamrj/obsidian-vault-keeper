@@ -14,16 +14,20 @@
   ],
   "scripts": {
     "dev": "node esbuild.config.mjs",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit --skipLibCheck",
-    "build": "npm run typecheck && node esbuild.config.mjs production"
+    "check": "npm run lint && npm run typecheck",
+    "build": "npm run check && node esbuild.config.mjs production"
   },
   "engines": {
     "node": ">=18"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
-    "builtin-modules": "^3.3.0",
     "esbuild": "^0.21.5",
+    "eslint": "^9.39.4",
+    "eslint-plugin-obsidianmd": "^0.2.8",
     "obsidian": "latest",
     "typescript": "^5.4.5"
   }
