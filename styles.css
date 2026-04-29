@@ -1,11 +1,22 @@
+.vault-keeper-section {
+  margin-top: 18px;
+}
+
 .vault-keeper-important {
-  border-top: 1px solid var(--background-modifier-border);
-  margin-top: 24px;
-  padding-top: 16px;
-  background: transparent;
+  border: 1px solid rgba(160, 32, 32, 0.45);
+  border-left: 4px solid rgb(160, 32, 32);
+  border-radius: 6px;
+  margin-top: 18px;
+  padding: 10px 12px;
+  background: rgba(160, 32, 32, 0.1);
 }
 
 .vault-keeper-important .setting-item-name,
 .vault-keeper-important .setting-item-description {
-  color: var(--text-error);
+  color: rgb(120, 24, 24);
+}
+
+.theme-dark .vault-keeper-important .setting-item-name,
+.theme-dark .vault-keeper-important .setting-item-description {
+  color: rgb(255, 170, 170);
 }

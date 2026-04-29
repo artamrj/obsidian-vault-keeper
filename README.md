@@ -2,13 +2,13 @@
 
 Vault Keeper is a small Obsidian plugin that blocks accidental deletion of selected folders and files from inside Obsidian.
 
-It uses Obsidian's native settings UI and stores a simple list of protected paths in the plugin data file.
+It uses Obsidian's native settings UI and stores the protected paths in the plugin data file.
 
 ## Features
 
 - Protect individual files from delete/trash actions in Obsidian.
 - Protect folders from delete/trash actions in Obsidian.
-- Optionally protect everything inside protected folders.
+- Choose whether protected folders also protect everything inside them.
 - Add existing files and folders with native autocomplete suggestions.
 - Keep saved settings simple and portable.
 
@@ -30,18 +30,15 @@ For a packaged Obsidian plugin release, include:
 
 - `manifest.json`
 - `main.js`
+- `styles.css`
 - `LICENSE`
-
-No `styles.css` file is required.
 
 ## Usage
 
 1. Open **Settings -> Community plugins -> Vault Keeper**.
-2. Search for an existing folder or file under **Add protected path**.
+2. Search for an existing folder or file under **Add protection**.
 3. Select a suggestion and click **Add**.
 4. Remove protection with the trash button beside a protected path.
-
-The command palette also includes **Show protected items** for a quick summary.
 
 ## Settings
 
@@ -63,6 +60,12 @@ npm run dev
 - `npm run typecheck` validates TypeScript without writing build output.
 - `npm run build` typechecks and writes the production `main.js`.
 - `npm run dev` starts esbuild in watch mode.
+
+### Source layout
+
+- `src/main.ts` contains the plugin lifecycle and deletion guards.
+- `src/core/` contains settings normalization and protection logic.
+- `src/settings/` contains the settings tab and autocomplete UI.
 
 ## Release Checklist
 

@@ -1,0 +1,23 @@
+[
+  "Delete denied. Vault Keeper just threw itself dramatically in front of: {path}",
+  "Nice try. Vault Keeper is standing in the doorway holding a tiny clipboard: {path}",
+  "Nope. {path} has entered witness protection.",
+  "Deletion blocked. {path} is wearing a very official safety helmet.",
+  "Not today. Vault Keeper put {path} behind velvet ropes.",
+  "Access denied. {path} has been adopted by Vault Keeper and is not leaving.",
+  "Delete attempt intercepted. {path} is currently too important for nonsense.",
+  "Vault Keeper blocked that. {path} is hiding under the digital couch.",
+  "Denied. {path} looked nervous, so Vault Keeper stepped in.",
+  "Deletion cancelled. {path} has a permission slip signed by Vault Keeper.",
+  "Hold up. {path} is protected and pretending not to hear you.",
+  "Vault Keeper says no. {path} is staying right where it is.",
+  "Denied. {path} is protected by ancient regex.",
+  "Blocked. {path} is too indexed to fail.",
+  "Nope. {path} lives in the sacred cache.",
+  "Deletion failed. {path} has admin feelings.",
+  "Blocked. {path} is in quantum backup.",
+  "Denied. {path} is a dependency now.",
+  "No delete. {path} is holding prod together.",
+  "Blocked. {path} is part of the prophecy.",
+  "Cannot delete {path}. The stack trace refused."
+]
