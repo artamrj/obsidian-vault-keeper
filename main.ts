@@ -46,6 +46,10 @@ type IndexedProtectableItem = ProtectableItem & {
   searchable: string;
 };
 
+type FileManagerWithTrashFile = App["fileManager"] & {
+  trashFile?: (file: TAbstractFile) => Promise<void>;
+};
+
 const SEARCH_RESULT_LIMIT = 25;
 
 class ProtectedPathSuggest extends AbstractInputSuggest<IndexedProtectableItem> {
@@ -71,7 +75,7 @@ class ProtectedPathSuggest extends AbstractInputSuggest<IndexedProtectableItem> 
   renderSuggestion(item: IndexedProtectableItem, el: HTMLElement): void {
     el.createDiv({ text: item.path });
     el.createDiv({
-      text: `${item.type === "folder" ? "Folder" : "File"}${this.isAlreadyProtected(item) ? " - Already protected" : ""}`,
+      text: `${item.type}${this.isAlreadyProtected(item) ? " - already protected" : ""}`,
       cls: "suggestion-note",
     });
   }
@@ -198,39 +202,43 @@ export default class VaultKeeperPlugin extends Plugin {
   }
 
   private patchDeletionMethods() {
-    const vault = this.app.vault;
-    const fileManager = this.app.fileManager as typeof this.app.fileManager & {
-      trashFile?: (file: TAbstractFile) => Promise<void>;
-    };
-
     if (!this.originalVaultDelete) {
-      this.originalVaultDelete = vault.delete.bind(
-        vault,
-      ) as typeof vault.delete;
-      vault.delete = (async (
+      this.originalVaultDelete = this.app.vault.delete.bind(
+        this.app.vault,
+      ) as typeof this.app.vault.delete;
+      this.app.vault.delete = (async (
         file: TAbstractFile,
         force?: boolean,
       ): Promise<void> => {
         if (this.isProtected(file)) this.block(file);
         return this.originalVaultDelete!(file, force);
-      }) as typeof vault.delete;
+      }) as typeof this.app.vault.delete;
     }
 
     if (!this.originalVaultTrash) {
-      this.originalVaultTrash = vault.trash.bind(vault) as typeof vault.trash;
-      vault.trash = (async (
+      this.originalVaultTrash = this.app.vault.trash.bind(
+        this.app.vault,
+      ) as typeof this.app.vault.trash;
+      this.app.vault.trash = (async (
         file: TAbstractFile,
         system: boolean,
       ): Promise<void> => {
         if (this.isProtected(file)) this.block(file);
         return this.originalVaultTrash!(file, system);
-      }) as typeof vault.trash;
+      }) as typeof this.app.vault.trash;
     }
 
-    if (fileManager.trashFile && !this.originalFileManagerTrashFile) {
+    if (
+      (this.app.fileManager as FileManagerWithTrashFile).trashFile &&
+      !this.originalFileManagerTrashFile
+    ) {
       this.originalFileManagerTrashFile =
-        fileManager.trashFile.bind(fileManager);
-      fileManager.trashFile = async (file: TAbstractFile): Promise<void> => {
+        (this.app.fileManager as FileManagerWithTrashFile).trashFile!.bind(
+          this.app.fileManager,
+        );
+      (this.app.fileManager as FileManagerWithTrashFile).trashFile = async (
+        file: TAbstractFile,
+      ): Promise<void> => {
         if (this.isProtected(file)) this.block(file);
         return this.originalFileManagerTrashFile!(file);
       };
@@ -246,11 +254,12 @@ export default class VaultKeeperPlugin extends Plugin {
       this.app.vault.trash = this.originalVaultTrash;
       this.originalVaultTrash = undefined;
     }
-    const fileManager = this.app.fileManager as typeof this.app.fileManager & {
-      trashFile?: (file: TAbstractFile) => Promise<void>;
-    };
-    if (this.originalFileManagerTrashFile && fileManager.trashFile) {
-      fileManager.trashFile = this.originalFileManagerTrashFile;
+    if (
+      this.originalFileManagerTrashFile &&
+      (this.app.fileManager as FileManagerWithTrashFile).trashFile
+    ) {
+      (this.app.fileManager as FileManagerWithTrashFile).trashFile =
+        this.originalFileManagerTrashFile;
       this.originalFileManagerTrashFile = undefined;
     }
   }
@@ -283,9 +292,9 @@ class VaultKeeperSettingTab extends PluginSettingTab {
       .addToggle((toggle) =>
         toggle
           .setValue(!this.plugin.settings.allowDeletingContents)
-          .onChange(async (value) => {
+          .onChange((value) => {
             this.plugin.settings.allowDeletingContents = !value;
-            await this.plugin.saveSettings();
+            void this.plugin.saveSettings();
           }),
       );
 
@@ -397,8 +406,8 @@ class VaultKeeperSettingTab extends PluginSettingTab {
         button
           .setButtonText("Add")
           .setCta()
-          .onClick(async () => {
-            await addPath();
+          .onClick(() => {
+            void addPath();
           }),
       );
   }
@@ -446,18 +455,21 @@ class VaultKeeperSettingTab extends PluginSettingTab {
     }
 
     paths.forEach((path) => {
+      const removePath = async () => {
+        if (type === "folder") await this.plugin.removeProtectedFolder(path);
+        else await this.plugin.removeProtectedFile(path);
+        this.display();
+      };
+
       new Setting(containerEl)
         .setName(path)
-        .setDesc(type === "folder" ? "Folder" : "File")
+        .setDesc(type)
         .addExtraButton((button) =>
           button
             .setIcon("trash-2")
             .setTooltip(`Remove ${path}`)
-            .onClick(async () => {
-              if (type === "folder")
-                await this.plugin.removeProtectedFolder(path);
-              else await this.plugin.removeProtectedFile(path);
-              this.display();
+            .onClick(() => {
+              void removePath();
             }),
         );
     });
