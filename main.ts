@@ -198,7 +198,6 @@ export default class VaultKeeperPlugin extends Plugin {
   }
 
   private patchDeletionMethods() {
-    const plugin = this;
     const vault = this.app.vault;
     const fileManager = this.app.fileManager as typeof this.app.fileManager & {
       trashFile?: (file: TAbstractFile) => Promise<void>;
@@ -208,34 +207,32 @@ export default class VaultKeeperPlugin extends Plugin {
       this.originalVaultDelete = vault.delete.bind(
         vault,
       ) as typeof vault.delete;
-      vault.delete = async function (
+      vault.delete = (async (
         file: TAbstractFile,
         force?: boolean,
-      ): Promise<void> {
-        if (plugin.isProtected(file)) plugin.block(file);
-        return plugin.originalVaultDelete!(file, force);
-      } as typeof vault.delete;
+      ): Promise<void> => {
+        if (this.isProtected(file)) this.block(file);
+        return this.originalVaultDelete!(file, force);
+      }) as typeof vault.delete;
     }
 
     if (!this.originalVaultTrash) {
       this.originalVaultTrash = vault.trash.bind(vault) as typeof vault.trash;
-      vault.trash = async function (
+      vault.trash = (async (
         file: TAbstractFile,
         system: boolean,
-      ): Promise<void> {
-        if (plugin.isProtected(file)) plugin.block(file);
-        return plugin.originalVaultTrash!(file, system);
-      } as typeof vault.trash;
+      ): Promise<void> => {
+        if (this.isProtected(file)) this.block(file);
+        return this.originalVaultTrash!(file, system);
+      }) as typeof vault.trash;
     }
 
     if (fileManager.trashFile && !this.originalFileManagerTrashFile) {
       this.originalFileManagerTrashFile =
         fileManager.trashFile.bind(fileManager);
-      fileManager.trashFile = async function (
-        file: TAbstractFile,
-      ): Promise<void> {
-        if (plugin.isProtected(file)) plugin.block(file);
-        return plugin.originalFileManagerTrashFile!(file);
+      fileManager.trashFile = async (file: TAbstractFile): Promise<void> => {
+        if (this.isProtected(file)) this.block(file);
+        return this.originalFileManagerTrashFile!(file);
       };
     }
   }
@@ -272,7 +269,7 @@ class VaultKeeperSettingTab extends PluginSettingTab {
     containerEl.empty();
 
     new Setting(containerEl)
-      .setName("Vault Keeper")
+      .setName("Protection overview")
       .setDesc(
         "Protect folders and files from accidental deletion inside Obsidian.",
       )
@@ -311,7 +308,7 @@ class VaultKeeperSettingTab extends PluginSettingTab {
     const important = new Setting(containerEl)
       .setName("Important")
       .setDesc(
-        "This blocks deletion only inside Obsidian. It cannot stop deletion from Finder, Explorer, terminal, sync tools, or other apps.",
+        "This only blocks deletion inside Obsidian. It cannot stop deletion from Finder, Explorer, terminal, sync tools, or other apps.",
       );
 
     important.settingEl.addClass("vault-keeper-important");
@@ -392,8 +389,8 @@ class VaultKeeperSettingTab extends PluginSettingTab {
         search.onChange(() => {
           selectedPath = "";
         });
-        search.inputEl.addEventListener("keydown", async (event) => {
-          if (event.key === "Enter") await addPath();
+        search.inputEl.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") void addPath();
         });
       })
       .addButton((button) =>
