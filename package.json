@@ -1,6 +1,6 @@
 {
   "name": "vault-keeper",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Obsidian plugin to block deletion of configured folders and files inside Obsidian.",
   "main": "main.js",
   "author": "Arta",
