@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -26,21 +28,94 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build plugin
-        run: npm run build
-
-      - name: Read release version
+      - name: Calculate next release version
         id: version
         run: |
-          VERSION="$(node -p "require('./manifest.json').version")"
-          if [ -z "$VERSION" ]; then
-            echo "manifest.json version is empty" >&2
+          LATEST_TAG="$(git tag --list 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)"
+
+          if [ -n "$LATEST_TAG" ]; then
+            BASE_VERSION="${LATEST_TAG#v}"
+            COMMIT_RANGE="${LATEST_TAG}..HEAD"
+            COMMIT_MESSAGES="$(git log --format=%B "$COMMIT_RANGE")"
+          else
+            BASE_VERSION="$(node -p "require('./manifest.json').version")"
+            COMMIT_RANGE="HEAD"
+            COMMIT_MESSAGES="$(git log --format=%B)"
+          fi
+
+          if ! echo "$BASE_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Base version must be in X.Y.Z format, got: $BASE_VERSION" >&2
             exit 1
           fi
 
+          IFS=. read -r MAJOR MINOR PATCH <<EOF
+          $BASE_VERSION
+          EOF
+
+          if echo "$COMMIT_MESSAGES" | grep -Eq 'BIG CHANGE|BREAKING CHANGE'; then
+            VERSION="$((MAJOR + 1)).0.0"
+            BUMP_TYPE="major"
+          else
+            VERSION="${MAJOR}.$((MINOR + 1)).0"
+            BUMP_TYPE="minor"
+          fi
+
           TAG="v${VERSION}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists. Refusing to overwrite it." >&2
+            exit 1
+          fi
+
+          echo "base_version=${BASE_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "commit_range=${COMMIT_RANGE}" >> "$GITHUB_OUTPUT"
+          echo "bump_type=${BUMP_TYPE}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Update version files
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+
+          const version = process.env.VERSION;
+          const files = ["manifest.json", "package.json", "package-lock.json"];
+
+          for (const file of files) {
+            const data = JSON.parse(fs.readFileSync(file, "utf8"));
+
+            data.version = version;
+            if (file === "package-lock.json" && data.packages && data.packages[""]) {
+              data.packages[""].version = version;
+            }
+
+            fs.writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`);
+          }
+          NODE
+
+      - name: Build plugin
+        run: npm run build
+
+      - name: Commit version bump
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add manifest.json package.json package-lock.json
+
+          if git diff --cached --quiet; then
+            echo "Version files already match ${{ steps.version.outputs.version }}."
+          else
+            git commit -m "chore: release ${{ steps.version.outputs.tag }} [skip ci]"
+            git push origin HEAD:main
+          fi
+
+          RELEASE_SHA="$(git rev-parse HEAD)"
+          git tag "${{ steps.version.outputs.tag }}" "$RELEASE_SHA"
+          git push origin "${{ steps.version.outputs.tag }}"
+          echo "release_sha=${RELEASE_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Check for existing release
         id: existing_release
@@ -61,11 +136,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
           VERSION: ${{ steps.version.outputs.version }}
+          BUMP_TYPE: ${{ steps.version.outputs.bump_type }}
+          BASE_VERSION: ${{ steps.version.outputs.base_version }}
         run: |
           gh release create "$TAG" \
             main.js \
             manifest.json \
             styles.css \
-            --target "$GITHUB_SHA" \
+            --target "${{ steps.commit.outputs.release_sha }}" \
             --title "Vault Keeper ${VERSION}" \
-            --notes "Release ${VERSION}"
+            --notes "Release ${VERSION} (${BUMP_TYPE} bump from ${BASE_VERSION})"
