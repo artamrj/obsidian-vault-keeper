@@ -31,10 +31,10 @@ jobs:
       - name: Calculate next release version
         id: version
         run: |
-          LATEST_TAG="$(git tag --list --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)"
+          LATEST_TAG="$(git tag --list --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)"
 
           if [ -n "$LATEST_TAG" ]; then
-            BASE_VERSION="${LATEST_TAG#v}"
+            BASE_VERSION="${LATEST_TAG}"
             COMMIT_RANGE="${LATEST_TAG}..HEAD"
             COMMIT_MESSAGES="$(git log --format=%B "$COMMIT_RANGE")"
           else
