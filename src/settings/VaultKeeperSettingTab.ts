@@ -65,7 +65,7 @@ export class VaultKeeperSettingTab extends PluginSettingTab {
     const important = new Setting(containerEl)
       .setName("Important")
       .setDesc(
-        "This only blocks deletion inside Obsidian. It cannot stop deletion from Finder, Explorer, terminal, sync tools, or other apps.",
+        "This only blocks deletion inside obsidian. It cannot stop deletion from finder, explorer, terminal, sync tools, or other apps.",
       );
     important.settingEl.addClass("vault-keeper-important");
   }
