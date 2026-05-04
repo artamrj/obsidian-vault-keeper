@@ -1,7 +1,7 @@
 {
   "id": "vault-keeper",
   "name": "Vault Keeper",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "minAppVersion": "1.6.6",
   "description": "Protect folders and files from accidental deletion.",
   "author": "Arta",
