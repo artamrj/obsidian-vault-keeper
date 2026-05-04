@@ -31,7 +31,7 @@ jobs:
       - name: Calculate next release version
         id: version
         run: |
-          LATEST_TAG="$(git tag --list 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)"
+          LATEST_TAG="$(git tag --list --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)"
 
           if [ -n "$LATEST_TAG" ]; then
             BASE_VERSION="${LATEST_TAG#v}"
@@ -72,7 +72,7 @@ jobs:
             exit 0
           fi
 
-          TAG="v${VERSION}"
+          TAG="${VERSION}"
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "Tag $TAG already exists. Refusing to overwrite it." >&2
             exit 1
